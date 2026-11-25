@@ -226,6 +226,9 @@ func compileSelfContained(blob, key []byte, outputName, outputDir string) error 
 	cmd.Dir = buildDir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+
+	cmd.Env = append(os.Environ(), "GOOS=windows", "GOARCH=amd64")
+
 	return cmd.Run()
 }
 
