@@ -28,10 +28,8 @@ def non_negative_float(value: str) -> float:
     return parsed
 
 
-def encrypt_file(
-    target_path: Path, output_path: Path, key_path: Path | None = None
-) -> bytes:
-    """Encrypt target_path with AES-256-GCM, write ciphertext to output_path, and save hex key to key_path."""
+def encrypt_file(target_path: Path, output_path: Path) -> bytes:
+    """Encrypt target_path with AES-256-GCM and write nonce + tag + ciphertext."""
     plaintext = target_path.read_bytes()
     key = get_random_bytes(KEY_SIZE)
     nonce = get_random_bytes(NONCE_SIZE)
@@ -39,13 +37,9 @@ def encrypt_file(
     cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)
     ciphertext, tag = cipher.encrypt_and_digest(plaintext)
 
-    if key_path is None:
-        key_path = Path(f"{output_path}.key")
-
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_bytes(nonce + tag + ciphertext)
-    key_path.parent.mkdir(parents=True, exist_ok=True)
-    key_path.write_text(f"{key.hex()}\n", encoding="utf-8")
+    Path(f"{output_path}.key").write_text(key.hex(), encoding="utf-8")
     return key
 
 
@@ -84,10 +78,9 @@ def main(argv: list[str] | None = None) -> int:
             return 1
 
         output = Path(args.output) if args.output else Path(f"{args.encrypt}.enc")
-        key_output = Path(f"{output}.key")
-        encrypt_file(target, output, key_output)
+        key = encrypt_file(target, output)
         print(f"Encrypted {target} -> {output}")
-        print(f"Key saved -> {key_output}")
+        print(f"Key (hex): {key.hex()}")
         return 0
 
     print("Parsed arguments:")
