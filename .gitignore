@@ -1,0 +1,58 @@
+# ── Secrets / generated payloads ──────────────────────────────
+*.key
+*.enc.key
+*.enc
+
+# ── Go build outputs ──────────────────────────────────────────
+# `go build -o evan .` produces this binary
+/evan
+/evan.exe
+
+# ── Compiled payload binaries ─────────────────────────────────
+# Produced by `./evan --encrypt <target>`
+hello_window
+hello_window_enc
+hello_window.exe
+hello_window_enc.exe
+
+# Generic fallback for any `*_enc` binary produced by your tool
+/*_enc
+/*_enc.exe
+
+# ── PyInstaller artifacts (from the Python version) ───────────
+build/
+dist/
+*.spec
+
+# ── Python ────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.venv/
+venv/
+env/
+ENV/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyrefly/
+
+# ── macOS ─────────────────────────────────────────────────────
+.DS_Store
+._*
+.AppleDouble
+.LSOverride
+*.app/
+
+# ── Editors / IDEs ────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── Logs / temp ───────────────────────────────────────────────
+*.log
+tmp/
+temp/
