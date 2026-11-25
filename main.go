@@ -139,11 +139,14 @@ func runPlain(plain []byte, args []string) error {
 
 	var tmp *os.File
 	var err error
-	if isPython {
-		tmp, err = os.CreateTemp("", "evan-*.py")
-	} else {
-		tmp, err = os.CreateTemp("", "evan-*.bin")
+	suffix := "evan-*.bin"
+	if runtime.GOOS == "windows" {
+		suffix = "evan-*.exe"
 	}
+	if isPython {
+		suffix = "evan-*.py"
+	}
+	tmp, err = os.CreateTemp("", suffix)
 	if err != nil {
 		return err
 	}
@@ -295,11 +298,14 @@ func runPlain(plain []byte, args []string) error {
 		strings.HasPrefix(head, "def ")
 	var tmp *os.File
 	var err error
-	if isPy {
-		tmp, err = os.CreateTemp("", "evan-*.py")
-	} else {
-		tmp, err = os.CreateTemp("", "evan-*.bin")
+	suffix := "evan-*.bin"
+	if runtime.GOOS == "windows" {
+		suffix = "evan-*.exe"
 	}
+	if isPy {
+		suffix = "evan-*.py"
+	}
+	tmp, err = os.CreateTemp("", suffix)
 	if err != nil {
 		return err
 	}
