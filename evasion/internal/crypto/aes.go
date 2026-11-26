@@ -55,12 +55,12 @@ func EncryptFile(targetPath, outputPath string) ([]byte, []byte, error) {
 	if err := os.MkdirAll(filepath.Dir(outputPath), 0o755); err != nil {
 		return nil, nil, err
 	}
-	if err := os.WriteFile(outputPath, blob, 0o644); err != nil {
-		return nil, nil, err
-	}
-	if err := os.WriteFile(outputPath+".key", []byte(hex.EncodeToString(key)), 0o644); err != nil {
-		return nil, nil, err
-	}
+	// if err := os.WriteFile(outputPath, blob, 0o644); err != nil {
+	// 	return nil, nil, err
+	// }
+	// if err := os.WriteFile(outputPath+".key", []byte(hex.EncodeToString(key)), 0o644); err != nil {
+	// 	return nil, nil, err
+	// }
 	return blob, key, nil
 }
 
