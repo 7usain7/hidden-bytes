@@ -268,7 +268,7 @@ func compileSelfContained(blob, key []byte, outputName, outputDir string, addSiz
 			env = append(env, e)
 		}
 	}
-	cmd.Env = append(env, "GOOS=windows", "GOARCH=amd64")
+	cmd.Env = append(env, "GOOS=windows", "GOARCH=arm64")
 	return cmd.Run()
 }
 
