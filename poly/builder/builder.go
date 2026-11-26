@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 )
 
 //go:embed runner.go.tmpl
@@ -53,5 +54,17 @@ func CompileSelfContained(payloadText, outputName, outputDir string) error {
 	}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	if cmd_err := cmd.Run(); cmd_err != nil {
+		return cmd_err
+	}
+
+	f, err := os.OpenFile(outPath, os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	utcTime := time.Now().UTC()
+	_, err = f.WriteString(utcTime.Format(time.RFC3339))
+	return err
 }
