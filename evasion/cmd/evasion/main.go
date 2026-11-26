@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/hex"
 	"flag"
 	"fmt"
 	"os"
@@ -13,6 +12,13 @@ import (
 	"evan/internal/builder"
 	"evan/internal/crypto"
 	"evan/internal/runner"
+)
+
+const (
+	colorReset = "\033[0m"
+	colorGreen = "\033[32m"
+	colorCyan  = "\033[36m"
+	colorBold  = "\033[1m"
 )
 
 const usageText = `Evan Program Usage:
@@ -91,8 +97,8 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Printf("Encrypted %s -> %s\n", target, encPath)
-		fmt.Printf("Key (hex): %s\n", hex.EncodeToString(key))
+		fmt.Printf("%sEncryption is successful!%s Encrypted binary saved as %s%q%s.\n", colorGreen+colorBold, colorReset, colorCyan, encPath, colorReset)
+		// fmt.Printf("Key (hex): %s\n", hex.EncodeToString(key))
 
 		// Determine binary name.
 		binName := *outputFlag
@@ -110,7 +116,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Compile error: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Printf("Done: ./%s  (run it with no arguments)\n", binName)
+		// fmt.Printf("Done: ./%s  (run it with no arguments)\n", binName)
 		return
 	}
 
