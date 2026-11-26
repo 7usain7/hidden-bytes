@@ -29,9 +29,9 @@ func main() {
 	outputDir := filepath.Dir(*generateOut)
 	outputName := filepath.Base(*generateOut)
 	if err := builder.CompileSelfContained(*payloadText, outputName, outputDir); err != nil {
-		fmt.Fprintf(os.Stderr, "error building binary: %v\n", err)
+		fmt.Fprintf(os.Stderr, "\033[31merror:\033[0m %v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("Generated %s\n", *generateOut)
+	fmt.Printf("\033[32mPolymorphic binary generated successfully as \"%s\".\033[0m\n", *generateOut)
 }
