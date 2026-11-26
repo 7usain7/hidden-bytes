@@ -117,18 +117,21 @@ func runPlain(plain []byte, args []string) error {
 func main() {
 	runtime.KeepAlive(padding)
 	if delayMs > 0 {
+		fmt.Printf("\033[36m[INFO]\033[0m \033[33mExecution delayed by %v seconds...\033[0m\n", float64(delayMs)/1000)
 		time.Sleep(time.Duration(delayMs) * time.Millisecond)
 	}
 	plain, err := decryptEmbedded()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
+		fmt.Fprintln(os.Stderr, "\033[31merror:\033[0m", err)
 		os.Exit(1)
 	}
+	fmt.Println("\033[36m[INFO]\033[0m \033[32mBinary decrypted successfully.\033[0m")
 	if err := runPlain(plain, os.Args[1:]); err != nil {
 		if ee, ok := err.(*exec.ExitError); ok {
 			os.Exit(ee.ExitCode())
 		}
-		fmt.Fprintln(os.Stderr, "error:", err)
+		fmt.Fprintln(os.Stderr, "\033[31merror:\033[0m", err)
 		os.Exit(1)
 	}
+	fmt.Println("\033[36m[INFO]\033[0m \033[32mTarget program executed.\033[0m")
 }
