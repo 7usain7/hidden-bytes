@@ -50,7 +50,7 @@ func CompileSelfContained(payloadText, outputName, outputDir string) error {
 	cmd := exec.Command("go", "build", "-trimpath", "-ldflags", "-s -w", "-o", outPath, ".")
 	cmd.Dir = buildDir
 	if strings.HasSuffix(strings.ToLower(outputName), ".exe") {
-		cmd.Env = append(os.Environ(), "GOOS=windows", "GOARCH=arm64")
+		cmd.Env = append(os.Environ(), "GOOS=windows", "GOARCH=amd64")
 	}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
